@@ -8,7 +8,8 @@ const userPoolId = process.env["USER_POOL_ID"];
 const region = process.env["AWS_REGION"]; //e.g. us-east-1
 const iss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId;
 
-const AWS = require('aws-sdk');
+const AWSXRay = require('aws-xray-sdk-core');
+const AWS = AWSXRay.captureAWS(require('aws-sdk'));
 const ddbDocClient = new AWS.DynamoDB.DocumentClient({
     region: process.env.AWS_REGION
 });
@@ -172,7 +173,7 @@ function ValidateToken(pems, event, context, callback) {
                         };
 
                         // Uncomment here to pass on the client ID as the api key in the auth response
-                        // authResponse.usageIdentifierKey = payload["client_id"];
+                        authResponse.usageIdentifierKey = payload["client_id"];
 
                         console.log("authResponse:" + JSON.stringify(authResponse, null, 2));
                         callback(null, authResponse);

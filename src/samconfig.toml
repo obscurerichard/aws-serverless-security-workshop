@@ -1,0 +1,11 @@
+version = 0.1
+[dev]
+[dev.deploy]
+[dev.deploy.parameters]
+stack_name = "CustomizeUnicorns"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-pxrmsfa8trv6"
+s3_prefix = "CustomizeUnicorns"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "InitResourceStack=\"Secure-Serverless\""
+image_repositories = []

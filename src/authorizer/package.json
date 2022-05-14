@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "aws-xray-sdk-core": "^3.3.5",
     "jsonwebtoken": "^8.0.1",
     "jwk-to-pem": "^1.2.6",
     "request": "^2.83.0"

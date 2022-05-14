@@ -1,5 +1,13 @@
 var mysql = require('mysql');
+// Load the AWS SDK
+const AWSXRay = require('aws-xray-sdk-core');
+const AWS = AWSXRay.captureAWS(require('aws-sdk'));
+const secretName = process.env.SECRET_NAME;
+var secret;
 
+
+// Create a Secrets Manager client
+const client = new AWS.SecretsManager();
 const CUSTOM_UNICORN_TABLE = "Custom_Unicorns";
 const PARTNER_COMPANY_TABLE = "Companies";
 
@@ -7,9 +15,11 @@ const PARTNER_COMPANY_TABLE = "Companies";
 * Host
 */
 
-const host = "secure-aurora-cluster.cluster-xxxxxxx.xxxxxxx.rds.amazonaws.com"
+const host = "secure-serverless-auroradbcluster-1d02qqgi38b7w.cluster-chhyxx0ew9iv.us-east-1.rds.amazonaws.com"
 
 class Database {
+    
+    dbCredentials = null;
 
     query(sql, connection, args) {
         return new Promise((resolve, reject) => {
@@ -47,22 +57,63 @@ class Database {
 
     getDbConfig() {
         console.log("getDbConfig()");
-        return new Promise((resolve, reject) => {
-            resolve({
-                host: host,
-                user: "admin",
-                password: "Corp123!",
-                database: "unicorn_customization",
-                multipleStatements: true
+        if (!this.dbCredentials) {
+            console.log(JSON.stringify({
+                function: 'getDbConfig()',
+                message: 'Getting new database credentials'}));
+            this.dbCredentials = new Promise((resolve, reject) => {
+                client.getSecretValue({SecretId: secretName}, function (err, data) {
+                    if (err) {
+                        this.dbCredentials = null;
+                        console.error(err);
+                        if (err.code === 'ResourceNotFoundException')
+                            reject("The requested secret " + secretName + " was not found");
+                        else if (err.code === 'InvalidRequestException')
+                            reject("The request was invalid due to: " + err.message);
+                        else if (err.code === 'InvalidParameterException')
+                            reject("The request had invalid params: " + err.message);
+                        else
+                            reject(err.message);
+                    }
+                    else {
+                        if (data.SecretString !== "") {
+                            secret = data.SecretString;
+                            resolve({
+                                host: JSON.parse(secret).host,
+                                user: JSON.parse(secret).username,
+                                password: JSON.parse(secret).password,
+                                database: "unicorn_customization",
+                                ssl: "Amazon RDS",
+    	                        multipleStatements: true
+                            });
+                        } else {
+                            this.dbCredentials = null;
+                            reject("Cannot parse DB credentials from secrets manager.");
+                        }
+                    }
+                });
+    
             });
-        });
+        }
+        return this.dbCredentials;
     };
+    
+    invalidateCredentials() {
+        this.dbCredentials = null;
+    }
 }
 
 function executeDBquery(query) {
     const dbConn = new Database();
     return dbConn.getDbConfig()
         .then(dbConn.connectToDb)
+        .catch((err) => {
+            dbConn.invalidateCredentials();
+            console.error(JSON.stringify({
+                message: "Could not connect to database",
+                err: err
+            }))
+        })
         .then(dbConn.query.bind(this, query));
 }
 
